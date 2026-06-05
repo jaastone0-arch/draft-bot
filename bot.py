@@ -85,6 +85,19 @@ def build_rosters_embed():
     return embed
 
 
+def build_reserved_embed():
+    reserved = []
+    for pos in POSITIONS:
+        for p in draft["pool"][pos]:
+            reserved.append(f"{POSITION_EMOJI[pos]} [{POSITION_LABEL[pos]}] {p}")
+    embed = discord.Embed(title="📋 Reserve List", color=0x95a5a6)
+    if reserved:
+        embed.description = "\n".join(reserved)
+    else:
+        embed.description = "*No players remaining — everyone was drafted!*"
+    return embed
+
+
 def get_all_pool_players():
     players = []
     for pos in POSITIONS:
@@ -254,7 +267,7 @@ async def pick(interaction: discord.Interaction, player: str):
 
     do_pick(current_owner, found_player, found_pos)
 
-    # Check if owner now has 5 picks — auto-fill the last empty slot with themselves
+    # Auto-fill: if owner now has 5 picks, slot them into the last empty position
     roster = draft["rosters"][current_owner]
     filled = [p for p in POSITIONS if roster.get(p)]
     autofill_msg = ""
@@ -262,24 +275,28 @@ async def pick(interaction: discord.Interaction, player: str):
         empty_pos = next((p for p in POSITIONS if not roster.get(p)), None)
         if empty_pos:
             roster[empty_pos] = current_owner
-            autofill_msg = f"\n🤖 **{current_owner}** has been auto-filled into **{POSITION_EMOJI[empty_pos]} {POSITION_LABEL[empty_pos]}**!"
+            autofill_msg = f"\n🤖 **{current_owner}** auto-filled into **{POSITION_EMOJI[empty_pos]} {POSITION_LABEL[empty_pos]}**!"
 
-    total_picks = len(draft["owners"]) * len(POSITIONS)
-    if draft["current_pick"] >= total_picks:
+    # Check if ALL rosters are fully complete
+    all_complete = all(
+        all(draft["rosters"][o].get(p) for p in POSITIONS)
+        for o in draft["owners"]
+    )
+
+    pick_msg = f"✅ **{current_owner}** picks **{found_player}** ({POSITION_EMOJI[found_pos]} {POSITION_LABEL[found_pos]}){picking_for}!{autofill_msg}"
+
+    if all_complete:
         draft["active"] = False
-        await interaction.response.send_message(
-            f"✅ **{current_owner}** picks **{found_player}** ({POSITION_EMOJI[found_pos]} {POSITION_LABEL[found_pos]}){picking_for}!{autofill_msg}\n\n"
-            f"🏆 **Draft is complete!**"
-        )
+        await interaction.response.send_message(f"{pick_msg}\n\n🏆 **Draft is complete!**")
         if draft["pool_message"]:
             await draft["pool_message"].edit(embed=build_pool_embed())
         await interaction.channel.send(embed=build_rosters_embed())
+        await interaction.channel.send(embed=build_reserved_embed())
         return
 
     next_owner = draft["order"][draft["current_pick"]]
     await interaction.response.send_message(
-        f"✅ **{current_owner}** picks **{found_player}** ({POSITION_EMOJI[found_pos]} {POSITION_LABEL[found_pos]}){picking_for}!{autofill_msg}\n"
-        f"🎯 **{next_owner}** — you're up! Use `/pick`"
+        f"{pick_msg}\n🎯 **{next_owner}** — you're up! Use `/pick`"
     )
 
     if draft["pool_message"]:
