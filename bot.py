@@ -283,7 +283,14 @@ async def pick(interaction: discord.Interaction, player: str):
         for o in draft["owners"]
     )
 
-    pick_msg = f"✅ **{current_owner}** picks **{found_player}** ({POSITION_EMOJI[found_pos]} {POSITION_LABEL[found_pos]}){picking_for}!{autofill_msg}"
+    # Build roster progress line for current owner
+    roster = draft["rosters"][current_owner]
+    filled_count = sum(1 for p in POSITIONS if roster.get(p))
+    needs = [f"{POSITION_EMOJI[p]} {POSITION_LABEL[p]}" for p in POSITIONS if not roster.get(p)]
+    needs_str = ", ".join(needs) if needs else "nothing — full!"
+    progress_msg = f"\n📊 **{current_owner}** {filled_count}/6 — still needs: {needs_str}"
+
+    pick_msg = f"✅ **{current_owner}** picks **{found_player}** ({POSITION_EMOJI[found_pos]} {POSITION_LABEL[found_pos]}){picking_for}!{autofill_msg}{progress_msg}"
 
     if all_complete:
         draft["active"] = False
