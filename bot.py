@@ -31,7 +31,7 @@ POSITION_ALIASES = {
     "RD": "RD", "RIGHT D": "RD", "RIGHT DEFENSE": "RD", "RIGHT DEFENCE": "RD",
     "G": "G", "GOALIE": "G", "GOALTENDER": "G", "GK": "G",
 }
-POSITION_EMOJI = {"LW": "🔵", "C": "🔴", "RW": "🟢", "LD": "🟡", "RD": "🟠", "G": "🟣"}
+POSITION_EMOJI = {"LW": "🟢", "C": "🔴", "RW": "🔵", "LD": "⚪", "RD": "🟡", "G": "🟣"}
 POSITION_LABEL = {"LW": "LEFT WING", "C": "CENTER", "RW": "RIGHT WING", "LD": "LEFT D", "RD": "RIGHT D", "G": "GOALIE"}
 
 
@@ -254,11 +254,21 @@ async def pick(interaction: discord.Interaction, player: str):
 
     do_pick(current_owner, found_player, found_pos)
 
+    # Check if owner now has 5 picks — auto-fill the last empty slot with themselves
+    roster = draft["rosters"][current_owner]
+    filled = [p for p in POSITIONS if roster.get(p)]
+    autofill_msg = ""
+    if len(filled) == 5:
+        empty_pos = next((p for p in POSITIONS if not roster.get(p)), None)
+        if empty_pos:
+            roster[empty_pos] = current_owner
+            autofill_msg = f"\n🤖 **{current_owner}** has been auto-filled into **{POSITION_EMOJI[empty_pos]} {POSITION_LABEL[empty_pos]}**!"
+
     total_picks = len(draft["owners"]) * len(POSITIONS)
     if draft["current_pick"] >= total_picks:
         draft["active"] = False
         await interaction.response.send_message(
-            f"✅ **{current_owner}** picks **{found_player}** ({POSITION_EMOJI[found_pos]} {POSITION_LABEL[found_pos]}){picking_for}!\n\n"
+            f"✅ **{current_owner}** picks **{found_player}** ({POSITION_EMOJI[found_pos]} {POSITION_LABEL[found_pos]}){picking_for}!{autofill_msg}\n\n"
             f"🏆 **Draft is complete!**"
         )
         if draft["pool_message"]:
@@ -268,7 +278,7 @@ async def pick(interaction: discord.Interaction, player: str):
 
     next_owner = draft["order"][draft["current_pick"]]
     await interaction.response.send_message(
-        f"✅ **{current_owner}** picks **{found_player}** ({POSITION_EMOJI[found_pos]} {POSITION_LABEL[found_pos]}){picking_for}!\n"
+        f"✅ **{current_owner}** picks **{found_player}** ({POSITION_EMOJI[found_pos]} {POSITION_LABEL[found_pos]}){picking_for}!{autofill_msg}\n"
         f"🎯 **{next_owner}** — you're up! Use `/pick`"
     )
 
